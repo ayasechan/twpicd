@@ -1,0 +1,32 @@
+# https://taskfile.dev
+
+version: '3'
+
+dotenv: ['.env']
+env:
+  GOARCH: amd64
+  
+vars:
+  ARGS: -trimpath --ldflags="-w -s" -o dist
+
+tasks:
+  default:
+    cmds:
+      - go run . -name tomose_shunsaku
+
+  build-win:
+    cmds:
+      - go build {{.ARGS}} .
+    env:
+      GOOS: linux
+  build-linux:
+    cmds:
+      - go build {{.ARGS}} .
+    env:
+      GOOS: windows
+  build:
+    cmds:
+      - mkdir -p dist
+      - task: build-win
+      - task: build-linux
+
