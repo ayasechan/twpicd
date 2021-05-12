@@ -31,6 +31,7 @@ func main() {
 		os.Exit(-1)
 	}
 
+	// 等待所有go程结束
 	var wg sync.WaitGroup
 	guard := make(chan int, maxGoroutines)
 
@@ -49,9 +50,10 @@ func main() {
 	v.Set("screen_name", *screen_name)
 	v.Set("count", "200")
 	v.Set("exclude_replies", "true")
-	v.Set("include_rts", "true")
+	v.Set("include_rts", "false")
 
 	var max_id int64
+
 	for {
 		if max_id != 0 {
 			v.Set("max_id", strconv.FormatInt(max_id, 10))
