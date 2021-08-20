@@ -9,7 +9,9 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ChimeraCoder/anaconda"
@@ -21,6 +23,11 @@ var (
 
 // 限制并发
 const maxGoroutines = 50
+
+type ImageInfo struct {
+	URL string
+	Id  string
+}
 
 func main() {
 
@@ -53,12 +60,16 @@ func main() {
 	v.Set("include_rts", "false")
 
 	var max_id int64
+	images := []ImageInfo{}
+	pageCount := 0
 
 	for {
 		if max_id != 0 {
 			v.Set("max_id", strconv.FormatInt(max_id, 10))
 		}
 		searchResult, _ := api.GetUserTimeline(v)
+		pageCount += 1
+		fmt.Println("request page", pageCount)
 
 		if len(searchResult) < 1 {
 			break
@@ -68,32 +79,45 @@ func main() {
 
 		for _, v := range searchResult {
 			for _, m := range v.ExtendedEntities.Media {
-				url := m.Media_url_https
-
-				fname := fmt.Sprintf(
-					"%s_%s%s",
-					v.IdStr,
-					strconv.FormatInt(time.Now().UnixNano(), 10),
-					path.Ext(url),
-				)
-
-				fpath := path.Join(*screen_name, fname)
-				fmt.Println(fpath)
-
-				// 开始下载
-				wg.Add(1)
-				guard <- 1
-				go func() {
-					DownloadFile(fpath, url)
-					defer wg.Done()
-					<-guard
-				}()
+				images = append(images, ImageInfo{
+					URL: m.Media_url_https,
+					Id:  v.IdStr,
+				})
 			}
 		}
-
-		time.Sleep(time.Duration(3) * time.Second)
+		time.Sleep(time.Second)
 	}
-	fmt.Println("wait download....")
+
+	var downloadFinishCount int64
+	for _, img := range images {
+		wg.Add(1)
+		guard <- 1
+		go func(img ImageInfo) {
+			defer func() {
+				wg.Done()
+				<-guard
+			}()
+			// originFileUrl := fmt.Sprintf("%s?name=orig", url)
+			pngUrl := strings.Replace(img.URL, ".jpg", ".png", 1)
+			fname := fmt.Sprintf(
+				"%s_%s%s",
+				img.Id,
+				strconv.FormatInt(time.Now().UnixNano(), 10),
+				path.Ext(pngUrl),
+			)
+
+			fpath := path.Join(*screen_name, fname)
+
+			err := DownloadFile(fpath, pngUrl)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			atomic.AddInt64(&downloadFinishCount, 1)
+			fmt.Printf("%d/%d %s\n", downloadFinishCount, len(images), fpath)
+		}(img)
+	}
+
 	wg.Wait()
 	close(guard)
 	fmt.Println("end!")
@@ -110,7 +134,9 @@ func DownloadFile(filepath string, url string) error {
 
 	// Get the data
 	resp, err := client.Do(req)
-
+	if resp.StatusCode != 200 {
+		fmt.Println(resp.StatusCode, url)
+	}
 	if err != nil {
 		return err
 	}
