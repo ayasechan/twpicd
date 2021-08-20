@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -103,10 +103,10 @@ func main() {
 				"%s_%s%s",
 				img.Id,
 				strconv.FormatInt(time.Now().UnixNano(), 10),
-				path.Ext(pngUrl),
+				filepath.Ext(pngUrl),
 			)
 
-			fpath := path.Join(*screen_name, fname)
+			fpath := filepath.Join(*screen_name, fname)
 
 			err := DownloadFile(fpath, pngUrl)
 			if err != nil {
