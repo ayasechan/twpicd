@@ -22,7 +22,7 @@ tasks:
   build:
     - rm -rf {{.output}}
     - mkdir -p {{.output}}
-    - go build .
+    - go build -o {{.output}} .
 
   release:
     cmds:
